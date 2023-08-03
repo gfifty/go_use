@@ -67,11 +67,16 @@ func ParseChunkSize(r network.Reader) (int, error) {
 
 func SkipCRLF(reader network.Reader) error {
 	p, err := reader.Peek(len(bytestr.StrCRLF))
-	reader.Skip(len(p)) // nolint: errcheck
 	if err != nil {
 		return err
 	}
+
+	defer reader.Skip(len(p)) // nolint: errcheck
+
 	if !bytes.Equal(p, bytestr.StrCRLF) {
+		fmt.Println("########## abnormal chunk ##########")
+		buffer, _ := reader.Peek(reader.Len())
+		fmt.Printf("buffer remain:\n%s", buffer)
 		return errBrokenChunk
 	}
 

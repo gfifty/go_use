@@ -45,6 +45,7 @@ import (
 	"bytes"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cloudwego/hertz/internal/bytestr"
 	"github.com/cloudwego/hertz/pkg/common/bytebufferpool"
@@ -59,7 +60,7 @@ var (
 
 	bodyStreamPool = sync.Pool{
 		New: func() interface{} {
-			return &bodyStream{}
+			return &bodyStream{readFlag: 0}
 		},
 	}
 )
@@ -68,6 +69,7 @@ var (
 var NoBody = protocol.NoBody
 
 type bodyStream struct {
+	readFlag        int32
 	prefetchedBytes *bytes.Reader
 	reader          network.Reader
 	trailer         *protocol.Trailer
@@ -123,11 +125,17 @@ func AcquireBodyStream(b *bytebufferpool.ByteBuffer, r network.Reader, t *protoc
 }
 
 func (rs *bodyStream) Read(p []byte) (int, error) {
+	if !atomic.CompareAndSwapInt32(&rs.readFlag, 0, 1) {
+		panic("readFlag is already 1")
+	}
+	defer atomic.StoreInt32(&rs.readFlag, 0)
+
 	defer func() {
 		if rs.reader != nil {
 			rs.reader.Release() //nolint:errcheck
 		}
 	}()
+
 	if rs.contentLength == -1 {
 		if rs.chunkEOF {
 			return 0, io.EOF

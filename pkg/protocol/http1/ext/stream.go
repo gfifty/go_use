@@ -43,7 +43,9 @@ package ext
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -126,7 +128,8 @@ func AcquireBodyStream(b *bytebufferpool.ByteBuffer, r network.Reader, t *protoc
 
 func (rs *bodyStream) Read(p []byte) (int, error) {
 	if !atomic.CompareAndSwapInt32(&rs.readFlag, 0, 1) {
-		panic("readFlag is already 1")
+		fmt.Println("############# Concurrent read #############")
+		debug.PrintStack()
 	}
 	defer atomic.StoreInt32(&rs.readFlag, 0)
 
